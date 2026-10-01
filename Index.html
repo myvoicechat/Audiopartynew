@@ -1,0 +1,3061 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  runApp(const ZikPartyApp());
+}
+
+// ============================================================
+// APP
+// ============================================================
+
+class ZikPartyApp extends StatelessWidget {
+  const ZikPartyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Zik Party',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF08090F),
+        fontFamily: 'Roboto',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFFF3D81),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const AuthGate(),
+    );
+  }
+}
+
+// ============================================================
+// AUTH GATE
+// ============================================================
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashScreen();
+        }
+
+        if (snapshot.hasData) {
+          return const ZikHomePage();
+        }
+
+        return const LoginPage();
+      },
+    );
+  }
+}
+
+// ============================================================
+// SPLASH
+// ============================================================
+
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.graphic_eq_rounded,
+              size: 80,
+              color: Color(0xFFFF3D81),
+            ),
+            SizedBox(height: 18),
+            Text(
+              'ZIK PARTY',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 3,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Voice • Friends • Party',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool loading = false;
+  bool obscure = true;
+
+  Future<void> login() async {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.isEmpty) {
+      showMessage('Email aur password enter karo');
+      return;
+    }
+
+    setState(() => loading = true);
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+    } on FirebaseAuthException catch (e) {
+      showMessage(e.message ?? 'Login failed');
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  Future<void> forgotPassword() async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      showMessage('Pehle email enter karo');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email,
+      );
+
+      showMessage('Password reset email bhej diya gaya');
+    } on FirebaseAuthException catch (e) {
+      showMessage(e.message ?? 'Password reset failed');
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 45),
+
+              const Icon(
+                Icons.graphic_eq_rounded,
+                size: 65,
+                color: Color(0xFFFF3D81),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                'Welcome to\nZik Party',
+                style: TextStyle(
+                  fontSize: 38,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              const Text(
+                'Meet people. Talk. Party together.',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 16,
+                ),
+              ),
+
+              const SizedBox(height: 45),
+
+              _field(
+                emailController,
+                'Email',
+                Icons.email_outlined,
+              ),
+
+              const SizedBox(height: 15),
+
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  hintText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        obscure = !obscure;
+                      });
+                    },
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF151722),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: forgotPassword,
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: Color(0xFFFF3D81),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: loading ? null : login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF3D81),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: loading
+                      ? const CircularProgressIndicator()
+                      : const Text(
+                          'LOGIN',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterPage(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Create a new account',
+                    style: TextStyle(
+                      color: Color(0xFFFF3D81),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String hint,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: const Color(0xFF151722),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// REGISTER
+// ============================================================
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool loading = false;
+  bool obscure = true;
+
+  Future<void> register() async {
+    if (nameController.text.trim().isEmpty ||
+        emailController.text.trim().isEmpty ||
+        passwordController.text.length < 6) {
+      showMessage(
+        'Name, valid email aur 6+ character password required',
+      );
+      return;
+    }
+
+    setState(() => loading = true);
+
+    try {
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      await credential.user?.updateDisplayName(
+        nameController.text.trim(),
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } on FirebaseAuthException catch (e) {
+      showMessage(
+        e.message ?? 'Registration failed',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Account'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const SizedBox(height: 25),
+
+            const Icon(
+              Icons.person_add_alt_1_rounded,
+              size: 70,
+              color: Color(0xFFFF3D81),
+            ),
+
+            const SizedBox(height: 30),
+
+            _field(
+              nameController,
+              'Full Name',
+              Icons.person_outline,
+            ),
+
+            const SizedBox(height: 15),
+
+            _field(
+              emailController,
+              'Email',
+              Icons.email_outlined,
+            ),
+
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: passwordController,
+              obscureText: obscure,
+              decoration: InputDecoration(
+                hintText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      obscure = !obscure;
+                    });
+                  },
+                  icon: Icon(
+                    obscure
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                  ),
+                ),
+                filled: true,
+                fillColor: const Color(0xFF151722),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: loading ? null : register,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF3D81),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: loading
+                    ? const CircularProgressIndicator()
+                    : const Text(
+                        'CREATE ACCOUNT',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String hint,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: const Color(0xFF151722),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// HOME
+// ============================================================
+
+class ZikHomePage extends StatefulWidget {
+  const ZikHomePage({super.key});
+
+  @override
+  State<ZikHomePage> createState() => _ZikHomePageState();
+}
+
+class _ZikHomePageState extends State<ZikHomePage> {
+  int selectedIndex = 0;
+
+  final pages = const [
+    HomeTab(),
+    DiscoverTab(),
+    MessagesTab(),
+    EventsTab(),
+    ProfileTab(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
+      ),
+
+      floatingActionButton: selectedIndex == 0
+          ? FloatingActionButton.extended(
+              backgroundColor: const Color(0xFFFF3D81),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CreateRoomPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Create Room',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : null,
+
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: const Color(0xFF0E0F17),
+        indicatorColor: const Color(0x33FF3D81),
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: 'Discover',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Messages',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Events',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// HOME TAB
+// ============================================================
+
+class HomeTab extends StatelessWidget {
+  const HomeTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final name = user?.displayName ?? 'Zik User';
+
+    return SafeArea(
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: const Color(0xFFFF3D81),
+                    child: Text(
+                      name.isNotEmpty
+                          ? name[0].toUpperCase()
+                          : 'Z',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Welcome back 👋',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  _circleButton(
+                    Icons.search,
+                    () {},
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  _circleButton(
+                    Icons.notifications_none,
+                    () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(18, 25, 18, 0),
+            sliver: SliverToBoxAdapter(
+              child: Container(
+                height: 155,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFFF3D81),
+                      Color(0xFF7C35FF),
+                    ],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -30,
+                      bottom: -35,
+                      child: Icon(
+                        Icons.graphic_eq,
+                        size: 180,
+                        color: Colors.white.withValues(
+                          alpha: .12,
+                        ),
+                      ),
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🎙️ LIVE PARTY',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Talk. Meet.\nHave Fun.',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              height: 1,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'Join thousands of people live',
+                            style: TextStyle(
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(18, 25, 18, 12),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                children: [
+                  const Text(
+                    'Live Rooms',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      'See all',
+                      style: TextStyle(
+                        color: Color(0xFFFF3D81),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 18,
+            ),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate(
+                [
+                  const RoomCard(
+                    title: 'Late Night Talks 🌙',
+                    host: 'Royal Prince',
+                    viewers: '1.2K',
+                    category: 'Chat',
+                    gradient: [
+                      Color(0xFF29134F),
+                      Color(0xFF51208B),
+                    ],
+                  ),
+                  const RoomCard(
+                    title: 'Music & Masti 🎵',
+                    host: 'DJ Riya',
+                    viewers: '856',
+                    category: 'Music',
+                    gradient: [
+                      Color(0xFF102A43),
+                      Color(0xFF176B87),
+                    ],
+                  ),
+                  const RoomCard(
+                    title: 'Friends Forever ❤️',
+                    host: 'Anjali',
+                    viewers: '643',
+                    category: 'Friends',
+                    gradient: [
+                      Color(0xFF501B1D),
+                      Color(0xFF9E3040),
+                    ],
+                  ),
+                  const RoomCard(
+                    title: 'Gaming Zone 🎮',
+                    host: 'Dark Gamer',
+                    viewers: '921',
+                    category: 'Gaming',
+                    gradient: [
+                      Color(0xFF123D2A),
+                      Color(0xFF176B4B),
+                    ],
+                  ),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _circleButton(
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 43,
+        height: 43,
+        decoration: BoxDecoration(
+          color: const Color(0xFF151722),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(icon, size: 21),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ROOM CARD
+// ============================================================
+
+class RoomCard extends StatelessWidget {
+  final String title;
+  final String host;
+  final String viewers;
+  final String category;
+  final List<Color> gradient;
+
+  const RoomCard({
+    super.key,
+    required this.title,
+    required this.host,
+    required this.viewers,
+    required this.category,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PartyRoomPage(
+              title: title,
+              host: host,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradient,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: .06),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 27,
+                  backgroundColor: Colors.white24,
+                  child: Icon(Icons.person),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Hosted by $host',
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+
+            Row(
+              children: [
+                const Icon(
+                  Icons.remove_red_eye_outlined,
+                  size: 17,
+                  color: Colors.white60,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '$viewers listening',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.mic,
+                  size: 17,
+                  color: Color(0xFFFF3D81),
+                ),
+                const SizedBox(width: 5),
+                const Text('LIVE'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// PARTY ROOM
+// ============================================================
+
+class PartyRoomPage extends StatefulWidget {
+  final String title;
+  final String host;
+
+  const PartyRoomPage({
+    super.key,
+    required this.title,
+    required this.host,
+  });
+
+  @override
+  State<PartyRoomPage> createState() => _PartyRoomPageState();
+}
+
+class _PartyRoomPageState extends State<PartyRoomPage> {
+  bool micOn = false;
+  bool speakerOn = true;
+  int likes = 128;
+
+  final List<RoomUser> users = [
+    RoomUser(
+      name: 'Royal Prince',
+      initial: 'P',
+      color: Color(0xFFFF3D81),
+      isHost: true,
+      micOn: true,
+    ),
+    RoomUser(
+      name: 'Riya',
+      initial: 'R',
+      color: Color(0xFF8B5CF6),
+      micOn: true,
+    ),
+    RoomUser(
+      name: 'Anjali',
+      initial: 'A',
+      color: Color(0xFFEC4899),
+      micOn: false,
+    ),
+    RoomUser(
+      name: 'Sam',
+      initial: 'S',
+      color: Color(0xFF06B6D4),
+      micOn: true,
+    ),
+    RoomUser(
+      name: 'Zara',
+      initial: 'Z',
+      color: Color(0xFF3B82F6),
+      micOn: false,
+    ),
+    RoomUser(
+      name: 'Karan',
+      initial: 'K',
+      color: Color(0xFF14B8A6),
+      micOn: true,
+    ),
+    RoomUser(
+      name: 'Maya',
+      initial: 'M',
+      color: Color(0xFFF59E0B),
+      micOn: false,
+    ),
+    RoomUser(
+      name: 'Nisha',
+      initial: 'N',
+      color: Color(0xFFEF4444),
+      micOn: true,
+    ),
+  ];
+
+  final List<ChatMessage> messages = [
+    ChatMessage(
+      user: 'Riya',
+      message: 'Hello everyone 👋',
+      color: Color(0xFF8B5CF6),
+    ),
+    ChatMessage(
+      user: 'Anjali',
+      message: 'Nice room ❤️',
+      color: Color(0xFFEC4899),
+    ),
+    ChatMessage(
+      user: 'Sam',
+      message: 'Good evening everyone 🎙️',
+      color: Color(0xFF06B6D4),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF070811),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _topBar(),
+            _roomInfo(),
+            Expanded(
+              child: _roomBody(),
+            ),
+            _bottomControls(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 5),
+      child: Row(
+        children: [
+          _smallButton(
+            Icons.arrow_back,
+            () => Navigator.pop(context),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 7,
+                      color: Colors.greenAccent,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'LIVE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.greenAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.people_outline,
+                      size: 13,
+                      color: Colors.white54,
+                    ),
+                    SizedBox(width: 3),
+                    Text(
+                      '1.2K',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          _smallButton(
+            Icons.share_outlined,
+            _shareRoom,
+          ),
+
+          const SizedBox(width: 5),
+
+          _smallButton(
+            Icons.more_vert,
+            _showRoomMenu,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roomInfo() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1B1238),
+            Color(0xFF111827),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFF3D81).withValues(
+            alpha: .15,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFFF3D81),
+                  Color(0xFF7C35FF),
+                ],
+              ),
+            ),
+            child: const CircleAvatar(
+              radius: 25,
+              backgroundColor: Color(0xFF2A203E),
+              child: Icon(Icons.person),
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      widget.host,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(
+                      Icons.verified,
+                      size: 15,
+                      color: Colors.blueAccent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Room Host • Talking now 🎙️',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF3D81).withValues(
+                alpha: .12,
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'VIP ROOM',
+              style: TextStyle(
+                color: Color(0xFFFF6B9F),
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roomBody() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(14, 5, 14, 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.graphic_eq,
+                color: Color(0xFFFF3D81),
+                size: 20,
+              ),
+              const SizedBox(width: 7),
+              const Text(
+                'Voice Seats',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${users.length}/8',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          _voiceSeats(),
+
+          const SizedBox(height: 18),
+
+          _roomActivity(),
+
+          const SizedBox(height: 15),
+
+          _quickChatPreview(),
+
+          const SizedBox(height: 15),
+
+          _roomRules(),
+
+          const SizedBox(height: 25),
+        ],
+      ),
+    );
+  }
+
+  Widget _voiceSeats() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: users.length,
+      gridDelegate:
+          const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 14,
+        childAspectRatio: .75,
+      ),
+      itemBuilder: (context, index) {
+        final user = users[index];
+
+        return GestureDetector(
+          onTap: () => _showUserMenu(user),
+          child: Column(
+            children: [
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: user.isHost
+                          ? const LinearGradient(
+                              colors: [
+                                Color(0xFFFFD700),
+                                Color(0xFFFF3D81),
+                              ],
+                            )
+                          : null,
+                    ),
+                    child: CircleAvatar(
+                      radius: 31,
+                      backgroundColor: user.color,
+                      child: Text(
+                        user.initial,
+                        style: const TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 23,
+                    height: 23,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF171923),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF070811),
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      user.micOn
+                          ? Icons.mic
+                          : Icons.mic_off,
+                      size: 12,
+                      color: user.micOn
+                          ? Colors.greenAccent
+                          : Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 6),
+
+              Text(
+                user.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              if (user.isHost)
+                const Text(
+                  'HOST',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: Color(0xFFFFD700),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _roomActivity() {
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            Icons.people_alt_outlined,
+            'Listeners',
+            '1.2K',
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _statCard(
+            Icons.favorite_border,
+            'Likes',
+            '$likes',
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _statCard(
+            Icons.card_giftcard,
+            'Gifts',
+            '86',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statCard(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 8,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11131D),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .05),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 19,
+            color: const Color(0xFFFF3D81),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 9,
+              color: Colors.white45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickChatPreview() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10121B),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.chat_bubble_outline,
+                size: 17,
+                color: Color(0xFFFF3D81),
+              ),
+              const SizedBox(width: 7),
+              const Text(
+                'Live Chat',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _openChat,
+                child: const Text(
+                  'View all',
+                  style: TextStyle(
+                    color: Color(0xFFFF3D81),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          ...messages.take(2).map(
+            (message) => Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 13,
+                    backgroundColor: message.color,
+                    child: Text(
+                      message.user[0],
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${message.user}: ',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      message.message,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white60,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roomRules() {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11131D),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.shield_outlined,
+            color: Colors.amber,
+            size: 20,
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Room Rules',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Be respectful • No abuse • No spam • Follow community guidelines',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomControls() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        10,
+        12,
+        12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D0F17),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: .05),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _controlButton(
+            Icons.chat_bubble_outline,
+            'Chat',
+            _openChat,
+          ),
+
+          _controlButton(
+            Icons.card_giftcard,
+            'Gift',
+            _openGifts,
+          ),
+
+          _controlButton(
+            Icons.people_outline,
+            'People',
+            _openMembers,
+          ),
+
+          _controlButton(
+            speakerOn
+                ? Icons.volume_up_outlined
+                : Icons.volume_off_outlined,
+            'Speaker',
+            () {
+              setState(() {
+                speakerOn = !speakerOn;
+              });
+            },
+          ),
+
+          const Spacer(),
+
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                micOn = !micOn;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: micOn
+                    ? Colors.greenAccent
+                    : const Color(0xFFFF3D81),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                micOn ? Icons.mic : Icons.mic_off,
+                color: Colors.white,
+                size: 25,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlButton(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 7),
+        width: 50,
+        child: Column(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFF191B27),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 8,
+                color: Colors.white54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _smallButton(
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 39,
+        height: 39,
+        decoration: BoxDecoration(
+          color: const Color(0xFF151722),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Icon(
+          icon,
+          size: 19,
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // CHAT
+  // ==========================================================
+
+  void _openChat() {
+    final controller = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF10121B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context)
+                    .viewInsets
+                    .bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * .65,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+
+                    Container(
+                      width: 45,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius:
+                            BorderRadius.circular(10),
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    const Text(
+                      'Live Chat',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: messages.length,
+                        itemBuilder: (_, index) {
+                          final message = messages[index];
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.only(
+                              bottom: 12,
+                            ),
+                            child: Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor:
+                                      message.color,
+                                  child: Text(
+                                    message.user[0],
+                                    style:
+                                        const TextStyle(
+                                      fontWeight:
+                                          FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 10),
+
+                                Expanded(
+                                  child: Container(
+                                    padding:
+                                        const EdgeInsets.all(
+                                      11,
+                                    ),
+                                    decoration:
+                                        BoxDecoration(
+                                      color:
+                                          const Color(
+                                        0xFF191B27,
+                                      ),
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(14),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment
+                                              .start,
+                                      children: [
+                                        Text(
+                                          message.user,
+                                          style: TextStyle(
+                                            color:
+                                                message.color,
+                                            fontWeight:
+                                                FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          message.message,
+                                          style:
+                                              const TextStyle(
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              decoration: InputDecoration(
+                                hintText:
+                                    'Type a message...',
+                                filled: true,
+                                fillColor:
+                                    const Color(
+                                  0xFF191B27,
+                                ),
+                                border:
+                                    OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(16),
+                                  borderSide:
+                                      BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          GestureDetector(
+                            onTap: () {
+                              final text =
+                                  controller.text.trim();
+
+                              if (text.isEmpty) return;
+
+                              setState(() {
+                                messages.add(
+                                  ChatMessage(
+                                    user: 'You',
+                                    message: text,
+                                    color:
+                                        const Color(
+                                      0xFFFF3D81,
+                                    ),
+                                  ),
+                                );
+                              });
+
+                              controller.clear();
+                              setSheetState(() {});
+                            },
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration:
+                                  const BoxDecoration(
+                                color:
+                                    Color(0xFFFF3D81),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.send,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // GIFTS
+  // ==========================================================
+
+  void _openGifts() {
+    final gifts = [
+      ['❤️', 'Heart', '10'],
+      ['🌹', 'Rose', '50'],
+      ['💎', 'Diamond', '100'],
+      ['👑', 'Crown', '500'],
+      ['🚀', 'Rocket', '1K'],
+      ['🎁', 'Gift Box', '2K'],
+      ['🦄', 'Unicorn', '5K'],
+      ['💰', 'Money', '10K'],
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF10121B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 45,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius:
+                      BorderRadius.circular(10),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              const Row(
+                children: [
+                  Text(
+                    'Send Gift 🎁',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Spacer(),
+                  Text(
+                    '💰 12,500',
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              GridView.builder(
+                shrinkWrap: true,
+                itemCount: gifts.length,
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: .9,
+                ),
+                itemBuilder: (_, index) {
+                  final gift = gifts[index];
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${gift[1]} gift selected 🎁',
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF191B27),
+                        borderRadius:
+                            BorderRadius.circular(15),
+                      ),
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            gift[0],
+                            style: const TextStyle(
+                              fontSize: 30,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            gift[1],
+                            style: const TextStyle(
+                              fontSize: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '🪙 ${gift[2]}',
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 15),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // MEMBERS
+  // ==========================================================
+
+  void _openMembers() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF10121B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (_) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * .65,
+          child: Column(
+            children: [
+              const SizedBox(height: 15),
+
+              const Text(
+                'Room Members',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Expanded(
+                child: ListView.builder(
+                  itemCount: users.length,
+                  itemBuilder: (_, index) {
+                    final user = users[index];
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: user.color,
+                        child: Text(
+                          user.initial,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Text(user.name),
+                          if (user.isHost) ...[
+                            const SizedBox(width: 6),
+                            const Text(
+                              'HOST',
+                              style: TextStyle(
+                                color: Colors.amber,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        user.micOn
+                            ? 'Speaking now 🎙️'
+                            : 'Listening',
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white38,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // USER MENU
+  // ==========================================================
+
+  void _showUserMenu(RoomUser user) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF10121B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 35,
+                  backgroundColor: user.color,
+                  child: Text(
+                    user.initial,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                Text(
+                  user.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                _userAction(
+                  Icons.person_outline,
+                  'View Profile',
+                ),
+
+                _userAction(
+                  Icons.person_add_alt_1,
+                  'Follow',
+                ),
+
+                if (!user.isHost)
+                  _userAction(
+                    Icons.volume_off_outlined,
+                    'Mute User',
+                  ),
+
+                _userAction(
+                  Icons.report_outlined,
+                  'Report',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _userAction(
+    IconData icon,
+    String title,
+  ) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: Colors.white38,
+      ),
+      onTap: () {
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$title: UI ready'),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // ROOM MENU
+  // ==========================================================
+
+  void _showRoomMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF10121B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+
+              _menuItem(
+                Icons.info_outline,
+                'Room Information',
+              ),
+
+              _menuItem(
+                Icons.favorite_border,
+                'Follow Host',
+              ),
+
+              _menuItem(
+                Icons.notifications_none,
+                'Room Notifications',
+              ),
+
+              _menuItem(
+                Icons.report_outlined,
+                'Report Room',
+              ),
+
+              _menuItem(
+                Icons.block,
+                'Block Room',
+              ),
+
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _menuItem(
+    IconData icon,
+    String title,
+  ) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: Colors.white38,
+      ),
+      onTap: () {
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$title: UI ready'),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // SHARE
+  // ==========================================================
+
+  void _shareRoom() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Room share link will be connected later 🔗',
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// CREATE ROOM
+// ============================================================
+
+class CreateRoomPage extends StatefulWidget {
+  const CreateRoomPage({super.key});
+
+  @override
+  State<CreateRoomPage> createState() => _CreateRoomPageState();
+}
+
+class _CreateRoomPageState extends State<CreateRoomPage> {
+  final nameController = TextEditingController();
+
+  String category = 'Chat';
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  void createRoom() {
+    final name = nameController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Room name enter karo'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PartyRoomPage(
+          title: name,
+          host: FirebaseAuth.instance.currentUser
+                  ?.displayName ??
+              'Royal Prince',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Party Room'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Container(
+            height: 170,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF3D81),
+                  Color(0xFF7C35FF),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: const Icon(
+              Icons.graphic_eq,
+              size: 80,
+              color: Colors.white,
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          TextField(
+            controller: nameController,
+            decoration: InputDecoration(
+              labelText: 'Room Name',
+              hintText: 'Example: Late Night Talks',
+              filled: true,
+              fillColor: const Color(0xFF151722),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            'Category',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Wrap(
+            spacing: 8,
+            children: [
+              'Chat',
+              'Music',
+              'Gaming',
+              'Friends',
+              'Fun',
+            ].map((item) {
+              final selected = category == item;
+
+              return ChoiceChip(
+                label: Text(item),
+                selected: selected,
+                onSelected: (_) {
+                  setState(() {
+                    category = item;
+                  });
+                },
+                selectedColor: const Color(0xFFFF3D81),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 30),
+
+          SizedBox(
+            height: 55,
+            child: ElevatedButton(
+              onPressed: createRoom,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF3D81),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'CREATE PARTY',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// DISCOVER
+// ============================================================
+
+class DiscoverTab extends StatelessWidget {
+  const DiscoverTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          const Text(
+            'Discover',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'Find trending rooms and new people',
+            style: TextStyle(
+              color: Colors.white54,
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          _discoverCard(
+            context,
+            '🔥 Trending Now',
+            'Late Night Talks 🌙',
+            Icons.local_fire_department,
+            const [
+              Color(0xFF7C35FF),
+              Color(0xFFFF3D81),
+            ],
+          ),
+
+          _discoverCard(
+            context,
+            '🎵 Music',
+            'Music & Masti',
+            Icons.music_note,
+            const [
+              Color(0xFF0066FF),
+              Color(0xFF00C6FF),
+            ],
+          ),
+
+          _discoverCard(
+            context,
+            '🎮 Gaming',
+            'Gaming Zone',
+            Icons.sports_esports,
+            const [
+              Color(0xFF00897B),
+              Color(0xFF00C853),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _discoverCard(
+    BuildContext context,
+    String category,
+    String title,
+    IconData icon,
+    List<Color> colors,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PartyRoomPage(
+              title: title,
+              host: 'Zik Host',
+            ),
+          ),
+        );
+      },
+      child: Container(
+        height: 130,
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: colors,
+          ),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 30,
+              ),
+            ),
+
+            const SizedBox(width: 15),
+
+            Expanded(
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 17,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MESSAGES
+// ============================================================
+
+class MessagesTab extends StatelessWidget {
+  const MessagesTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(18),
+        children: const [
+          Text(
+            'Messages',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          SizedBox(height: 25),
+
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Color(0xFF8B5CF6),
+              child: Text('R'),
+            ),
+            title: Text('Riya'),
+            subtitle: Text(
+              'Hey! Join my room 🎙️',
+            ),
+            trailing: Text('2m'),
+          ),
+
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Color(0xFFEC4899),
+              child: Text('A'),
+            ),
+            title: Text('Anjali'),
+            subtitle: Text(
+              'See you tonight ❤️',
+            ),
+            trailing: Text('10m'),
+          ),
+
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Color(0xFF06B6D4),
+              child: Text('S'),
+            ),
+            title: Text('Sam'),
+            subtitle: Text(
+              'Join the party!',
+            ),
+            trailing: Text('20m'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+class EventsTab extends StatelessWidget {
+  const EventsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          const Text(
+            'Events',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'Upcoming Zik Party events',
+            style: TextStyle(
+              color: Colors.white54,
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          _eventCard(
+            'Zik Party Battle',
+            '🎙️',
+            'Tonight • 9:00 PM',
+            Colors.amber,
+          ),
+
+          _eventCard(
+            'Music Night',
+            '🎵',
+            'Tomorrow • 8:00 PM',
+            Colors.pink,
+          ),
+
+          _eventCard(
+            'Friends Challenge',
+            '🔥',
+            'Sunday • 7:00 PM',
+            Colors.orange,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventCard(
+    String title,
+    String emoji,
+    String time,
+    Color iconColor,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151722),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 55,
+            height: 55,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Center(
+              child: Text(
+                emoji,
+                style: const TextStyle(
+                  fontSize: 26,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Icon(
+            Icons.chevron_right,
+            color: Colors.white38,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// PROFILE
+// ============================================================
+
+class ProfileTab extends StatelessWidget {
+  const ProfileTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const SizedBox(height: 20),
+
+          Center(
+            child: CircleAvatar(
+              radius: 48,
+              backgroundColor: const Color(0xFFFF3D81),
+              child: Text(
+                (user?.displayName?.isNotEmpty ?? false)
+                    ? user!.displayName![0].toUpperCase()
+                    : 'Z',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          Center(
+            child: Text(
+              user?.displayName ?? 'Zik User',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 5),
+
+          Center(
+            child: Text(
+              user?.email ?? '',
+              style: const TextStyle(
+                color: Colors.white54,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          _item(
+            context,
+            Icons.person_outline,
+            'Edit Profile',
+          ),
+
+          _item(
+            context,
+            Icons.account_balance_wallet_outlined,
+            'Wallet',
+          ),
+
+          _item(
+            context,
+            Icons.card_giftcard,
+            'My Gifts',
+          ),
+
+          _item(
+            context,
+            Icons.workspace_premium_outlined,
+            'VIP',
+          ),
+
+          _item(
+            context,
+            Icons.settings_outlined,
+            'Settings',
+          ),
+
+          const SizedBox(height: 20),
+
+          ListTile(
+            leading: const Icon(
+              Icons.logout,
+              color: Colors.redAccent,
+            ),
+            title: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.redAccent,
+              ),
+            ),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _item(
+    BuildContext context,
+    IconData icon,
+    String title,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151722),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: Colors.white38,
+        ),
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title screen coming next'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+class RoomUser {
+  final String name;
+  final String initial;
+  final Color color;
+  final bool isHost;
+  final bool micOn;
+
+  const RoomUser({
+    required this.name,
+    required this.initial,
+    required this.color,
+    this.isHost = false,
+    this.micOn = false,
+  });
+}
+
+class ChatMessage {
+  final String user;
+  final String message;
+  final Color color;
+
+  ChatMessage({
+    required this.user,
+    required this.message,
+    required this.color,
+  });
+}
